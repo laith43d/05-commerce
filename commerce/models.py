@@ -12,30 +12,28 @@ User = get_user_model()
 class Product(Entity):
     name = models.CharField(verbose_name='name', max_length=255)
     description = models.TextField('description', null=True, blank=True)
-    weight = models.FloatField('weight', null=True, blank=True)
-    width = models.FloatField('width', null=True, blank=True)
-    height = models.FloatField('height', null=True, blank=True)
-    length = models.FloatField('length', null=True, blank=True)
     qty = models.DecimalField('qty', max_digits=10, decimal_places=2)
     cost = models.DecimalField('cost', max_digits=10, decimal_places=2)
+    img = models.ImageField('image', upload_to='products_images/',null = True)
     price = models.DecimalField('price', max_digits=10, decimal_places=2)
     discounted_price = models.DecimalField('discounted price', max_digits=10, decimal_places=2)
-    vendor = models.ForeignKey('commerce.Vendor', verbose_name='vendor', related_name='products',
-                               on_delete=models.SET_NULL,
-                               null=True, blank=True)
+    product_size = models.ManyToManyField('commerce.ProductSize',verbose_name="Size",related_name='order')
+    
     category = models.ForeignKey('commerce.Category', verbose_name='category', related_name='products',
                                  null=True,
                                  blank=True,
                                  on_delete=models.SET_NULL)
-    merchant = models.ForeignKey('commerce.Merchant', verbose_name='merchant', related_name='products',
-                                 null=True,
-                                 blank=True,
-                                 on_delete=models.SET_NULL)
-    is_featured = models.BooleanField('is featured')
-    is_active = models.BooleanField('is active')
+    product_type = models.ForeignKey('commerce.ProductType',null=True,on_delete=models.SET_NULL,related_name="products")
+    is_active = models.BooleanField('is active' , default=True)
     label = models.ForeignKey('commerce.Label', verbose_name='label', related_name='products', null=True, blank=True,
                               on_delete=models.CASCADE)
 
+    def __str__(self):
+        return self.name
+
+
+class ProductType(Entity):
+    name = models.CharField(max_length=100)
     def __str__(self):
         return self.name
 
@@ -51,6 +49,7 @@ class Order(Entity):
     note = models.CharField('note', null=True, blank=True, max_length=255)
     ref_code = models.CharField('ref code', max_length=255)
     ordered = models.BooleanField('ordered')
+
     items = models.ManyToManyField('commerce.Item', verbose_name='items', related_name='order')
 
     def __str__(self):
@@ -70,12 +69,25 @@ class Item(Entity):
     """
     user = models.ForeignKey(User, verbose_name='user', related_name='items', on_delete=models.CASCADE)
     product = models.ForeignKey('commerce.Product', verbose_name='product',
-                                on_delete=models.CASCADE)
+                           on_delete=models.CASCADE)
     item_qty = models.IntegerField('item_qty')
+    item_size = models.ForeignKey('commerce.ProductSize',null=True,on_delete=models.SET_NULL,verbose_name="Size",related_name='items')
+
     ordered = models.BooleanField('ordered', default=False)
+    @property
+    def item_total(self):
+        return self.product.price * self.item_qty
+
 
     def __str__(self):
         return self.product.name
+
+
+
+class ProductSize(Entity):
+    size = models.CharField("Size",max_length=20)
+    def __str__(self):
+        return self.size
 
 
 class OrderStatus(Entity):
@@ -103,21 +115,14 @@ class OrderStatus(Entity):
 
 
 class Category(Entity):
-    parent = models.ForeignKey('self',
-                               verbose_name='parent',
-                               related_name='children',
-                               null=True,
-                               blank=True,
-                               on_delete=models.CASCADE)
+    types = models.ManyToManyField('commerce.ProductType',verbose_name='Types',related_name='categories',null=True,blank=True)
     name = models.CharField('name', max_length=255)
     description = models.TextField('description')
     image = models.ImageField('image', upload_to='category/')
-    is_active = models.BooleanField('is active')
+    is_active = models.BooleanField('is active',default=True)
 
 
     def __str__(self):
-        if self.parent:
-            return f'-   {self.name}'
         return f'{self.name}'
 
     class Meta:
@@ -202,9 +207,22 @@ class Address(Entity):
                              on_delete=models.CASCADE)
     work_address = models.BooleanField('work address', null=True, blank=True)
     address1 = models.CharField('address1', max_length=255)
+    address2 = models.CharField('address2', null=True, blank=True, max_length=500)
+    city = models.CharField('city', null=True, blank=True, max_length=100)
+    phone = models.CharField('phone', max_length=255)
+
+    def __str__(self):
+        return f'{self.user.first_name} - {self.address1} - {self.address2} - {self.phone}'
+
+
+""" class Address2(Entity):
+    user = models.ForeignKey(User, verbose_name='user', related_name='address',
+                             on_delete=models.CASCADE)
+    work_address = models.BooleanField('work address', null=True, blank=True)
+    address1 = models.CharField('address1', max_length=255)
     address2 = models.CharField('address2', null=True, blank=True, max_length=255)
     city = models.ForeignKey(City, related_name='addresses', on_delete=models.CASCADE)
     phone = models.CharField('phone', max_length=255)
 
     def __str__(self):
-        return f'{self.user.first_name} - {self.address1} - {self.address2} - {self.phone}'
+        return f'{self.user.first_name} - {self.address1} - {self.address2} - {self.phone}' """
